@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Log File Analyzer</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+			background: #f5f7fa;
+			min-height: 100vh;
+			padding: 20px;
+		}
+
+		.container {
+			max-width: 1200px;
+			margin: 0 auto;
+			background: white;
+			border-radius: 12px;
+			box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+			overflow: hidden;
+		}
+
+		.header {
+			background: linear-gradient(135deg, #0ea5a5 0%, #06a6a6 100%);
+			padding: 40px 30px;
+			color: white;
+			text-align: center;
+		}
+
+		.header h1 {
+			font-size: 32px;
+			font-weight: 700;
+			margin-bottom: 10px;
+			letter-spacing: -0.5px;
+		}
+
+		.header p {
+			font-size: 14px;
+			opacity: 0.9;
+		}
+
+		.content {
+			padding: 30px;
+		}
+
+		.controls {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+			gap: 18px;
+			margin-bottom: 30px;
+			background: #f9fbfc;
+			padding: 24px;
+			border-radius: 8px;
+			border: 1px solid #e5eef2;
+		}
+
+		.control-group {
+			display: flex;
+			flex-direction: column;
+		}
+
+		label {
+			font-weight: 600;
+			color: #2d3748;
+			margin-bottom: 8px;
+			font-size: 13px;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+
+		input[type="file"],
+		input[type="text"],
+		input[type="datetime-local"],
+		select {
+			padding: 10px 12px;
+			border: 1px solid #cbd5e0;
+			border-radius: 6px;
+			font-size: 14px;
+			transition: all 0.3s ease;
+			background: white;
+			color: #2d3748;
+		}
+
+		input[type="text"]:focus,
+		input[type="datetime-local"]:focus,
+		select:focus {
+			outline: none;
+			border-color: #0ea5a5;
+			box-shadow: 0 0 0 3px rgba(14, 165, 165, 0.1);
+			background: white;
+		}
+
+		.button-group {
+			display: flex;
+			gap: 10px;
+			align-items: flex-end;
+		}
+
+		button {
+			padding: 10px 20px;
+			background: #0ea5a5;
+			color: white;
+			border: none;
+			border-radius: 6px;
+			cursor: pointer;
+			font-weight: 600;
+			font-size: 14px;
+			transition: all 0.3s ease;
+		}
+
+		button:hover:not(:disabled) {
+			background: #0d8f8f;
+			box-shadow: 0 4px 12px rgba(14, 165, 165, 0.25);
+		}
+
+		button:disabled {
+			background: #cbd5e0;
+			cursor: not-allowed;
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+			gap: 16px;
+			margin-bottom: 30px;
+		}
+
+		.stat-box {
+			background: linear-gradient(135deg, #f0fffe 0%, #f7fdfd 100%);
+			padding: 20px;
+			border-radius: 8px;
+			border-left: 4px solid #0ea5a5;
+			border: 1px solid #e5eef2;
+			border-left: 4px solid #0ea5a5;
+		}
+
+		.stat-label {
+			font-size: 11px;
+			color: #718096;
+			text-transform: uppercase;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+		}
+
+		.stat-value {
+			font-size: 28px;
+			font-weight: 700;
+			color: #0ea5a5;
+			margin-top: 8px;
+		}
+
+		.chart-container {
+			position: relative;
+			height: 400px;
+			margin-bottom: 30px;
+			background: white;
+			border-radius: 8px;
+			border: 1px solid #e5eef2;
+			padding: 20px;
+			overflow: hidden;
+		}
+
+		#chartSelectionOverlay {
+			position: absolute;
+			top: 0;
+			left: 0;
+			height: 100%;
+			background: rgba(14, 165, 165, 0.15);
+			border: 2px solid #0ea5a5;
+			pointer-events: none;
+			display: none;
+			z-index: 10;
+		}
+
+		.error {
+			background: #fff5f5;
+			color: #c53030;
+			padding: 14px 16px;
+			border-radius: 6px;
+			border-left: 4px solid #c53030;
+			margin-bottom: 20px;
+			font-size: 14px;
+		}
+
+		.success {
+			background: #f0fdf4;
+			color: #16a34a;
+			padding: 14px 16px;
+			border-radius: 6px;
+			border-left: 4px solid #16a34a;
+			margin-bottom: 20px;
+			font-size: 14px;
+		}
+
+		.log-preview {
+			background: #f9fbfc;
+			padding: 16px;
+			border-radius: 6px;
+			max-height: 300px;
+			overflow-y: auto;
+			font-family: 'Courier New', monospace;
+			font-size: 11px;
+			color: #4a5568;
+			border: 1px solid #e5eef2;
+		}
+
+		.log-entry {
+			padding: 8px;
+			margin-bottom: 8px;
+			border-left: 3px solid #0ea5a5;
+			background: #fff;
+			border-radius: 4px;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+
+		.log-entry:last-child {
+			margin-bottom: 0;
+		}
+
+		.section-title {
+			font-weight: 700;
+			color: #2d3748;
+			margin-top: 20px;
+			margin-bottom: 12px;
+			font-size: 14px;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+
+		.filter-panel {
+			background: #f9fbfc;
+			padding: 20px;
+			border-radius: 8px;
+			border: 1px solid #e5eef2;
+			margin-bottom: 30px;
+		}
+
+		.filter-item {
+			display: flex;
+			gap: 12px;
+			margin-bottom: 12px;
+			padding: 12px;
+			background: white;
+			border-radius: 6px;
+			border: 1px solid #e5eef2;
+			align-items: center;
+		}
+
+		.filter-item:last-child {
+			margin-bottom: 0;
+		}
+
+		.filter-color {
+			width: 24px;
+			height: 24px;
+			border-radius: 4px;
+			border: 2px solid #cbd5e0;
+			cursor: pointer;
+		}
+
+		.filter-inputs {
+			display: flex;
+			gap: 10px;
+			flex: 1;
+		}
+
+		.filter-inputs input {
+			flex: 1;
+			padding: 8px 12px;
+			border: 1px solid #cbd5e0;
+			border-radius: 4px;
+			font-size: 13px;
+		}
+
+		.filter-inputs select {
+			padding: 8px 10px;
+			border: 1px solid #cbd5e0;
+			border-radius: 4px;
+			font-size: 13px;
+			min-width: 120px;
+		}
+
+		.filter-actions {
+			display: flex;
+			gap: 8px;
+		}
+
+		.filter-actions button {
+			padding: 6px 12px;
+			font-size: 12px;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-weight: 600;
+		}
+
+		.filter-add-btn {
+			background: #0ea5a5;
+			color: white;
+		}
+
+		.filter-add-btn:hover {
+			background: #0d8f8f;
+		}
+
+		.filter-remove-btn {
+			background: #fed7d7;
+			color: #c53030;
+		}
+
+		.filter-remove-btn:hover {
+			background: #fc8181;
+		}
+
+		#messages {
+			margin-bottom: 20px;
+		}
+
+		::-webkit-scrollbar {
+			width: 6px;
+		}
+
+		::-webkit-scrollbar-track {
+			background: #f1f1f1;
+			border-radius: 10px;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: #0ea5a5;
+			border-radius: 10px;
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			background: #0d8f8f;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>Log File Analyzer</h1>
+			<p>Analyze and visualize log file patterns with precision</p>
+		</div>
+
+		<div class="content">
+			<div class="controls">
+				<div class="control-group">
+					<label for="fileInput">Select Log File:</label>
+					<input type="file" id="fileInput" accept=".log,.txt">
+				</div>
+
+				<div class="control-group">
+					<label for="timeFrame">Quick Time Frame:</label>
+					<select id="timeFrame" onchange="applyTimeFrame()">
+						<option value="">Custom Range</option>
+						<optgroup label="Short Term">
+							<option value="last30m">Last 30 Minutes</option>
+							<option value="last1h">Last 1 Hour</option>
+							<option value="last2h">Last 2 Hours</option>
+							<option value="last4h">Last 4 Hours</option>
+							<option value="last8h">Last 8 Hours</option>
+							<option value="last12h">Last 12 Hours</option>
+						</optgroup>
+						<optgroup label="Relative">
+							<option value="last24h">Last 24 Hours</option>
+							<option value="last48h">Last 48 Hours</option>
+							<option value="last7d">Last 7 Days (1W)</option>
+							<option value="last30d">Last 30 Days (1M)</option>
+						</optgroup>
+						<optgroup label="Calendar">
+							<option value="today">Today</option>
+							<option value="yesterday">Yesterday</option>
+							<option value="thisWeek">This Week</option>
+							<option value="lastWeek">Last Week</option>
+							<option value="thisMonth">This Month</option>
+							<option value="lastMonth">Last Month</option>
+						</optgroup>
+					</select>
+				</div>
+
+				<div class="control-group">
+					<label for="startTime">Start Time:</label>
+					<input type="datetime-local" id="startTime">
+				</div>
+
+				<div class="control-group">
+					<label for="endTime">End Time:</label>
+					<input type="datetime-local" id="endTime">
+				</div>
+
+				<div class="control-group">
+					<label for="timeInterval">Interval:</label>
+					<select id="timeInterval">
+						<option value="minute">Per Minute</option>
+						<option value="hour">Per Hour</option>
+						<option value="day">Per Day</option>
+					</select>
+				</div>
+
+				<div class="button-group">
+					<button onclick="analyzeLog()">Analyze</button>
+					<button onclick="resetFilters()">Reset</button>
+				</div>
+			</div>
+
+		<div id="messages"></div>
+		<div id="stats"></div>
+
+		<div class="filter-panel">
+			<div class="section-title">Message Filters</div>
+			<div id="filtersList"></div>
+			<button class="filter-add-btn" onclick="addMessageFilter()">+ Add Filter</button>
+		</div>
+
+		<div class="chart-container">
+				<canvas id="occurrenceChart"></canvas>
+				<div id="chartSelectionOverlay"></div>
+			</div>
+
+			<div id="logPreview"></div>
+		</div>
+	</div>
+
+	<script>
+		let logLines = [];
+		let chart = null;
+		let chartLabels = [];
+		let isDragging = false;
+		let dragStartIndex = null;
+		let dragCanvas = null;
+		let lastIntervalSwitched = false; // Track if interval was switched in last render
+
+		// Filter management
+		let messageFilters = [];
+		const filterColors = ['#0ea5a5', '#e53e3e', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d6bcfa'];
+		let filterColorIndex = 0;
+
+		// Initialize with one empty filter
+		function initializeFilters() {
+			messageFilters = [{
+				id: 0,
+				text: '',
+				matchType: 'contains',
+				color: filterColors[0]
+			}];
+			filterColorIndex = 1;
+			renderFilters();
+		}
+
+		function addMessageFilter() {
+			messageFilters.push({
+				id: messageFilters.length,
+				text: '',
+				matchType: 'contains',
+				color: filterColors[filterColorIndex % filterColors.length]
+			});
+			filterColorIndex++;
+			renderFilters();
+		}
+
+		function removeMessageFilter(id) {
+			messageFilters = messageFilters.filter(f => f.id !== id);
+			renderFilters();
+		}
+
+		function updateFilter(id, field, value) {
+			const filter = messageFilters.find(f => f.id === id);
+			if (filter) {
+				filter[field] = value;
+			}
+		}
+
+	function hexToRgba(hex, alpha = 1) {
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+	}
+
+	function changeFilterColor(id) {
+		const filter = messageFilters.find(f => f.id === id);
+		if (filter) {
+			const currentIndex = filterColors.indexOf(filter.color);
+			filter.color = filterColors[(currentIndex + 1) % filterColors.length];
+			renderFilters();
+			// Re-render chart if it exists
+			if (chart && logLines.length > 0) {
+				analyzeLog();
+			}
+		}
+	}
+
+	function renderFilters() {
+		const filtersContainer = document.getElementById('filtersList');
+		const html = messageFilters.map(filter => `
+			<div class="filter-item">
+				<div 
+					class="filter-color" 
+					style="background-color: ${filter.color};"
+					onclick="changeFilterColor(${filter.id})"
+					title="Click to change color"
+				></div>
+				<div class="filter-inputs">
+					<input 
+						type="text" 
+						placeholder="Enter message text to filter..." 
+						value="${filter.text}"
+						oninput="updateFilter(${filter.id}, 'text', this.value)"
+					>
+					<select onchange="updateFilter(${filter.id}, 'matchType', this.value)">
+						<option value="contains" ${filter.matchType === 'contains' ? 'selected' : ''}>Contains</option>
+						<option value="exact" ${filter.matchType === 'exact' ? 'selected' : ''}>Exact Match</option>
+						<option value="regex" ${filter.matchType === 'regex' ? 'selected' : ''}>Regex</option>
+					</select>
+				</div>
+				<div class="filter-actions">
+					${messageFilters.length > 1 ? `<button class="filter-remove-btn" onclick="removeMessageFilter(${filter.id})">Remove</button>` : ''}
+				</div>
+			</div>
+		`).join('');
+		filtersContainer.innerHTML = html;
+	}
+
+	document.getElementById('fileInput').addEventListener('change', function (e) {
+		const file = e.target.files[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = function (event) {
+			try {
+				const fileContent = event.target.result;
+				showMessage(`⏳ Parsing ${(file.size / 1024 / 1024).toFixed(1)}MB file...`, 'info');
+				
+				// Use setTimeout to allow UI to update
+				setTimeout(() => {
+					logLines = parseLogBatched(fileContent);
+					showMessage(`✓ File loaded: ${logLines.length} entries`, 'success');
+				}, 100);
+			} catch (error) {
+				showMessage(`✗ Error reading file: ${error.message}`, 'error');
+			}
+		};
+		reader.readAsText(file);
+	});
+
+	function parseLog(fileContent) {
+		const entries = [];
+		const lines = fileContent.split('\n');
+
+		let currentEntry = null;
+		const dateTimeRegex = /^(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2})\s+(\w+)\s+\(([^)]+)\)\s+-\s+(.+)/;
+
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			const match = line.match(dateTimeRegex);
+
+			if (match) {
+				if (currentEntry) {
+					entries.push(currentEntry);
+				}
+
+				const [, dateTimeStr, level, category, message] = match;
+				const [datePart, timePart] = dateTimeStr.split(' ');
+				const [day, month, year] = datePart.split('.');
+				const dateTime = new Date(`${year}-${month}-${day}T${timePart}Z`);
+
+				currentEntry = {
+					dateTime,
+					level,
+					category,
+					message,
+					rawLine: line
+				};
+			} else if (currentEntry && line.trim()) {
+				currentEntry.message += '\n' + line;
+				currentEntry.rawLine += '\n' + line;
+			}
+		}
+
+		if (currentEntry) {
+			entries.push(currentEntry);
+		}
+
+		return entries;
+	}
+
+	function parseLogBatched(fileContent) {
+		const entries = [];
+		const lines = fileContent.split('\n');
+		const dateTimeRegex = /^(\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2})\s+(\w+)\s+\(([^)]+)\)\s+-\s+(.+)/;
+		
+		let currentEntry = null;
+
+		// Process in batches to avoid call stack issues
+		const batchSize = 10000;
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			const match = line.match(dateTimeRegex);
+
+			if (match) {
+				if (currentEntry) {
+					entries.push(currentEntry);
+				}
+
+				const [, dateTimeStr, level, category, message] = match;
+				const [datePart, timePart] = dateTimeStr.split(' ');
+				const [day, month, year] = datePart.split('.');
+				const dateTime = new Date(`${year}-${month}-${day}T${timePart}Z`);
+
+				currentEntry = {
+					dateTime,
+					level,
+					category,
+					message,
+					rawLine: line
+				};
+			} else if (currentEntry && line.trim()) {
+				currentEntry.message += '\n' + line;
+				currentEntry.rawLine += '\n' + line;
+			}
+
+			// Allow UI to update periodically
+			if (i % batchSize === 0 && i > 0) {
+				const progress = Math.round((i / lines.length) * 100);
+				showMessage(`⏳ Processing... ${progress}%`, 'info');
+			}
+		}
+
+		if (currentEntry) {
+			entries.push(currentEntry);
+		}
+
+		return entries;
+	}
+
+	function applyTimeFrame() {
+		const timeFrame = document.getElementById('timeFrame').value;
+		const now = new Date();
+		let startDate = null;
+		let endDate = new Date();
+
+		if (!timeFrame) {
+			// Custom range - clear auto-set values
+			return;
+		}
+
+		switch (timeFrame) {
+			case 'last30m':
+				startDate = new Date(now.getTime() - 30 * 60 * 1000);
+				break;
+			case 'last1h':
+				startDate = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+				break;
+			case 'last2h':
+				startDate = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+				break;
+			case 'last4h':
+				startDate = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+				break;
+			case 'last8h':
+				startDate = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+				break;
+			case 'last12h':
+				startDate = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+				break;
+			case 'last24h':
+				startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+				break;
+			case 'last48h':
+				startDate = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+				break;
+			case 'last7d':
+				startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+				break;
+			case 'last30d':
+				startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+				break;
+		case 'today':
+			startDate = new Date();
+			startDate.setHours(0, 0, 0, 0);
+			endDate = new Date();
+			endDate.setHours(23, 59, 59, 999);
+			break;
+		case 'yesterday':
+			startDate = new Date();
+			startDate.setDate(startDate.getDate() - 1);
+			startDate.setHours(0, 0, 0, 0);
+			endDate = new Date();
+			endDate.setDate(endDate.getDate() - 1);
+			endDate.setHours(23, 59, 59, 999);
+			break;
+		case 'thisWeek':
+			startDate = new Date();
+			const day = startDate.getDay();
+			const diff = startDate.getDate() - day;
+			startDate.setDate(diff);
+			startDate.setHours(0, 0, 0, 0);
+			endDate = new Date();
+			break;
+		case 'lastWeek':
+			startDate = new Date();
+			const lastDay = startDate.getDay();
+			const lastDiff = startDate.getDate() - lastDay - 7;
+			startDate.setDate(lastDiff);
+			startDate.setHours(0, 0, 0, 0);
+			endDate = new Date();
+			endDate.setDate(endDate.getDate() - 7);
+			endDate.setHours(23, 59, 59, 999);
+			break;
+		case 'thisMonth':
+			startDate = new Date();
+			startDate.setDate(1);
+			startDate.setHours(0, 0, 0, 0);
+			endDate = new Date();
+			break;
+		case 'lastMonth':
+			startDate = new Date();
+			startDate.setMonth(startDate.getMonth() - 1);
+			startDate.setDate(1);
+			startDate.setHours(0, 0, 0, 0);
+			endDate = new Date();
+			endDate.setDate(0);
+			endDate.setHours(23, 59, 59, 999);
+			break;
+		}
+
+		// Set the datetime inputs
+		if (startDate) {
+			document.getElementById('startTime').value = formatDateTimeLocal(startDate);
+		}
+		if (endDate) {
+			document.getElementById('endTime').value = formatDateTimeLocal(endDate);
+		}
+	}		function formatDateTimeLocal(date) {
+			const year = date.getUTCFullYear();
+			const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+			const day = String(date.getUTCDate()).padStart(2, '0');
+			const hours = String(date.getUTCHours()).padStart(2, '0');
+			const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+			return `${year}-${month}-${day}T${hours}:${minutes}`;
+		}
+
+	function analyzeLog() {
+		if (logLines.length === 0) {
+			showMessage('✗ Please load a log file first', 'error');
+		return;
+	}
+
+	const startTime = document.getElementById('startTime').value
+		? new Date(document.getElementById('startTime').value + 'Z')
+		: null;
+	const endTime = document.getElementById('endTime').value
+		? new Date(document.getElementById('endTime').value + 'Z')
+		: null;
+	const timeInterval = document.getElementById('timeInterval').value;		// Filter by time range
+		let timeFilteredLines = logLines;
+
+		if (startTime) {
+			timeFilteredLines = timeFilteredLines.filter(entry =>
+				entry.dateTime >= startTime
+			);
+		}
+
+		if (endTime) {
+			timeFilteredLines = timeFilteredLines.filter(entry =>
+				entry.dateTime <= endTime
+			);
+		}
+
+		// Create filtered datasets for each message filter
+		const filterDatasets = messageFilters
+			.filter(filter => filter.text.trim() !== '') // Only include filters with text
+			.map(filter => {
+				let filtered = timeFilteredLines;
+				
+				if (filter.matchType === 'contains') {
+					filtered = filtered.filter(entry =>
+						entry.message.toLowerCase().includes(filter.text.toLowerCase())
+					);
+				} else if (filter.matchType === 'exact') {
+					filtered = filtered.filter(entry =>
+						entry.message.toLowerCase() === filter.text.toLowerCase()
+					);
+				} else if (filter.matchType === 'regex') {
+					try {
+						const regex = new RegExp(filter.text);
+						filtered = filtered.filter(entry =>
+							regex.test(entry.message)
+						);
+					} catch (e) {
+						showMessage(`✗ Invalid regex in filter: ${e.message}`, 'error');
+						return null;
+					}
+				}
+				
+				return {
+					filter,
+					lines: filtered,
+					grouped: groupByInterval(filtered, timeInterval)
+				};
+			})
+			.filter(d => d !== null);
+
+		if (filterDatasets.length === 0) {
+			showMessage('✗ Please enter at least one filter text', 'error');
+			return;
+		}
+
+		const hasResults = filterDatasets.some(d => d.lines.length > 0);
+		if (!hasResults) {
+			showMessage('✗ No log entries match the filters', 'error');
+			return;
+		}
+
+		// Combine all filtered lines for stats
+		const allFilteredLines = [...new Set(filterDatasets.flatMap(d => d.lines))];
+		
+		renderChart(filterDatasets, timeInterval, startTime, endTime);
+		
+		// Only show success message if no interval switch occurred
+		if (!lastIntervalSwitched) {
+			showMessage(`✓ Analysis complete: ${allFilteredLines.length} entries found`, 'success');
+		}
+		
+		updateStats(allFilteredLines);
+		updateLogPreview(allFilteredLines);
+	}
+
+	function groupByInterval(entries, interval) {
+		const groups = {};
+
+		entries.forEach(entry => {
+			let key;
+			const dt = entry.dateTime;
+
+			if (interval === 'minute') {
+				key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')} ${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`;
+			} else if (interval === 'hour') {
+				key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')} ${String(dt.getUTCHours()).padStart(2, '0')}:00`;
+			} else {
+				key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+			}
+
+			groups[key] = (groups[key] || 0) + 1;
+		});
+
+		return Object.entries(groups)
+			.sort((a, b) => new Date(a[0]) - new Date(b[0]))
+			.reduce((acc, [key, count]) => {
+				acc[key] = count;
+				return acc;
+			}, {});
+	}
+
+	function getMinMaxDate(lines) {
+		let min = null, max = null;
+		for (let i = 0; i < lines.length; i++) {
+			const dt = lines[i].dateTime;
+			if (min === null || dt < min) min = dt;
+			if (max === null || dt > max) max = dt;
+		}
+		return { min, max };
+	}
+
+	function renderChart(filterDatasets, interval, startTime, endTime) {
+		// Reset switch flag at start of render
+		lastIntervalSwitched = false;
+		
+		// Use filtered time range if provided, otherwise use full log range
+		let minDate, maxDate;
+		
+		const { min: logMinDate, max: logMaxDate } = getMinMaxDate(logLines);
+		
+		if (startTime && endTime) {
+			minDate = new Date(startTime);
+			maxDate = new Date(endTime);
+		} else if (startTime) {
+			minDate = new Date(startTime);
+			maxDate = logMaxDate;
+		} else if (endTime) {
+			minDate = logMinDate;
+			maxDate = new Date(endTime);
+		} else {
+			minDate = logMinDate;
+			maxDate = logMaxDate;
+		}
+
+		if (!minDate || !maxDate) {
+			showMessage('✗ No valid dates found in log', 'error');
+			return;
+		}
+
+		const labels = [];
+		const maxLabels = 1000; // Prevent stack overflow with too many labels
+
+		if (interval === 'minute') {
+			// For minute intervals, limit to 1000 data points max
+			const timeSpan = maxDate - minDate;
+			const minuteSpan = Math.ceil(timeSpan / 60000);
+			
+			// If more than 1000 minutes, automatically upgrade to hourly
+			if (minuteSpan > maxLabels) {
+				lastIntervalSwitched = true;
+				showMessage(`⚠ Too many data points for minute-level view. Switching to hourly.`, 'info');
+				// Regenerate grouped data with hourly interval before recursing
+				const regroupedDatasets = filterDatasets.map(fd => ({
+					...fd,
+					grouped: groupByInterval(fd.lines, 'hour')
+				}));
+				return renderChart(regroupedDatasets, 'hour', startTime, endTime);
+			}
+
+			let current = new Date(minDate);
+			while (current <= maxDate && labels.length < maxLabels) {
+				const key = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')} ${String(current.getUTCHours()).padStart(2, '0')}:${String(current.getUTCMinutes()).padStart(2, '0')}`;
+				labels.push(key);
+				current.setUTCMinutes(current.getUTCMinutes() + 1);
+			}
+		} else if (interval === 'hour') {
+			// For hour intervals, limit to 1000 data points max
+			const timeSpan = maxDate - minDate;
+			const hourSpan = Math.ceil(timeSpan / 3600000);
+			
+			// If more than 1000 hours, automatically upgrade to daily
+			if (hourSpan > maxLabels) {
+				lastIntervalSwitched = true;
+				showMessage(`⚠ Too many data points for hourly view. Switching to daily.`, 'info');
+				// Regenerate grouped data with daily interval before recursing
+				const regroupedDatasets = filterDatasets.map(fd => ({
+					...fd,
+					grouped: groupByInterval(fd.lines, 'day')
+				}));
+				return renderChart(regroupedDatasets, 'day', startTime, endTime);
+			}
+
+			let current = new Date(minDate);
+			current.setUTCMinutes(0, 0, 0);
+			while (current <= maxDate && labels.length < maxLabels) {
+				const key = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')} ${String(current.getUTCHours()).padStart(2, '0')}:00`;
+				labels.push(key);
+				current.setUTCHours(current.getUTCHours() + 1);
+			}
+		} else {
+			let current = new Date(minDate);
+			current.setUTCHours(0, 0, 0, 0);
+			while (current <= maxDate && labels.length < maxLabels * 10) {
+				const key = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
+				labels.push(key);
+				current.setUTCDate(current.getUTCDate() + 1);
+			}
+		}
+
+		chartLabels = labels;
+		const ctx = document.getElementById('occurrenceChart').getContext('2d');
+		dragCanvas = document.getElementById('occurrenceChart');
+
+		if (chart) {
+			chart.destroy();
+		}
+
+		// Build datasets for each filter
+		const datasets = filterDatasets.map(fd => {
+			const data = labels.map(label => fd.grouped[label] || 0);
+			// Convert hex to rgba with opacity
+			const hexColor = fd.filter.color;
+			const rgba = hexToRgba(hexColor, 0.7);
+			
+			return {
+				label: `${fd.filter.text} (${interval})`,
+				data,
+				borderColor: fd.filter.color,
+				backgroundColor: rgba,
+				borderWidth: 2,
+				fill: true,
+				tension: 0.4,
+				pointRadius: 3,
+				pointBackgroundColor: fd.filter.color,
+				pointBorderColor: '#fff',
+				pointBorderWidth: 1,
+				pointHoverRadius: 5
+			};
+		});
+
+		chart = new Chart(ctx, {
+			type: 'line',
+			data: {
+				labels,
+				datasets
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: {
+					intersect: false,
+					mode: 'index'
+				},
+				plugins: {
+					legend: {
+						display: true,
+						position: 'top',
+						labels: {
+							font: {
+								weight: '600',
+								size: 13
+							},
+							color: '#2d3748',
+							padding: 15
+						}
+					},
+					filler: {
+						propagate: true
+					}
+				},
+				scales: {
+					x: {
+						stacked: true,
+						ticks: {
+							color: '#718096',
+							maxTicksLimit: 20
+						},
+						grid: {
+							color: '#e5eef2'
+						}
+					},
+					y: {
+						stacked: true,
+						beginAtZero: true,
+						ticks: {
+							stepSize: 1,
+							color: '#718096'
+						},
+						grid: {
+							color: '#e5eef2'
+						}
+					}
+				}
+			}
+		});
+
+		// Add drag selection listeners
+		dragCanvas.addEventListener('mousedown', onChartMouseDown);
+		dragCanvas.addEventListener('mousemove', onChartMouseMove);
+		dragCanvas.addEventListener('mouseup', onChartMouseUp);
+		dragCanvas.addEventListener('mouseleave', onChartMouseUp);
+	}
+
+	function onChartMouseDown(e) {
+		if (!chart || chartLabels.length === 0) return;
+		isDragging = true;
+		dragStartIndex = getChartIndexFromMouse(e);
+	}
+
+	function onChartMouseMove(e) {
+		if (!isDragging || !chart || dragStartIndex === null) return;
+		dragCanvas.style.cursor = 'col-resize';
+		
+		const dragEndIndex = getChartIndexFromMouse(e);
+		if (dragEndIndex !== null) {
+			const startIdx = Math.min(dragStartIndex, dragEndIndex);
+			const endIdx = Math.max(dragStartIndex, dragEndIndex);
+			
+			// Calculate pixel positions for the selection overlay
+			const canvasRect = dragCanvas.getBoundingClientRect();
+			const containerRect = dragCanvas.parentElement.getBoundingClientRect();
+			
+			const startPixel = chart.scales.x.getPixelForValue(startIdx);
+			const endPixel = chart.scales.x.getPixelForValue(endIdx);
+			
+			const overlay = document.getElementById('chartSelectionOverlay');
+			overlay.style.display = 'block';
+			overlay.style.left = startPixel + 'px';
+			overlay.style.width = (endPixel - startPixel) + 'px';
+		}
+	}
+
+	function onChartMouseUp(e) {
+		if (!isDragging || !chart || dragStartIndex === null) return;
+		isDragging = false;
+		const dragEndIndex = getChartIndexFromMouse(e);
+		
+		if (dragEndIndex !== null && dragEndIndex !== dragStartIndex) {
+			const startIdx = Math.min(dragStartIndex, dragEndIndex);
+			const endIdx = Math.max(dragStartIndex, dragEndIndex);
+			
+			if (startIdx >= 0 && endIdx < chartLabels.length) {
+				const startLabel = chartLabels[startIdx];
+				const endLabel = chartLabels[endIdx];
+				
+				// Parse the labels and set the time inputs based on format
+				const startDateTime = parseLabelToDateTime(startLabel, true);
+				const endDateTime = parseLabelToDateTime(endLabel, false);
+				
+				document.getElementById('startTime').value = startDateTime;
+				document.getElementById('endTime').value = endDateTime;
+				document.getElementById('timeFrame').value = '';
+				
+				// Trigger analysis to redraw with proper scaling
+				analyzeLog();
+				showMessage('✓ Time range selected from chart', 'success');
+			}
+		}
+		dragCanvas.style.cursor = 'default';
+		document.getElementById('chartSelectionOverlay').style.display = 'none';
+		dragStartIndex = null;
+	}
+
+	function parseLabelToDateTime(label, isStart) {
+		// Labels can be in three formats:
+		// Day: "YYYY-MM-DD"
+		// Hour: "YYYY-MM-DD HH:00"
+		// Minute: "YYYY-MM-DD HH:MM"
+		
+		if (label.includes(':')) {
+			// Hour or minute format - already has time
+			if (isStart) {
+				// Start time: use as-is
+				return label.replace(' ', 'T');
+			} else {
+				// End time: add one minute/hour to include the full period
+			const parts = label.split(' ');
+			const timeParts = parts[1].split(':');
+			const date = new Date(parts[0] + 'T' + parts[1] + ':00Z');
+			
+			if (timeParts[1] === '00') {
+				// Hour format: add 59 minutes and 59 seconds
+				date.setUTCMinutes(59);
+				date.setUTCSeconds(59);
+			} else {
+				// Minute format: add 59 seconds (end of minute)
+				date.setUTCSeconds(59);
+			}
+			
+			return formatDateTimeLocal(date);
+			}
+		} else {
+			// Day format - needs time added
+			if (isStart) {
+				// Start of day
+				return label + 'T00:00';
+			} else {
+				// End of day
+				return label + 'T23:59';
+			}
+		}
+	}
+
+	function getChartIndexFromMouse(e) {
+		if (!chart) return null;
+		
+		const canvasPosition = Chart.helpers.getRelativePosition(e, chart);
+		const dataX = chart.scales.x.getValueForPixel(canvasPosition.x);
+		// Use floor for more predictable selection, then clamp to valid range
+		const index = Math.floor(dataX + 0.5);
+		
+		if (index < 0) return 0;
+		if (index >= chartLabels.length) return chartLabels.length - 1;
+		return index;
+	}
+
+	function updateStats(entries) {
+		const totalCount = entries.length;
+
+		document.getElementById('stats').innerHTML = `
+			<div class="stats">
+				<div class="stat-box">
+					<div class="stat-label">Total Occurrences</div>
+					<div class="stat-value">${totalCount}</div>
+				</div>
+			</div>
+		`;
+	}
+
+	function updateLogPreview(entries) {
+		const preview = entries.slice(-10);
+		document.getElementById('logPreview').innerHTML = `
+			<div class="section-title">Matching Entries (last 10):</div>
+			<div class="log-preview">
+				${preview.map(entry =>
+			`<div class="log-entry">${escapeHtml(entry.rawLine)}</div>`
+		).join('')}
+			</div>
+		`;
+	}
+
+	function showMessage(msg, type) {
+		const messagesDiv = document.getElementById('messages');
+		const div = document.createElement('div');
+		div.className = type;
+		div.textContent = msg;
+		messagesDiv.innerHTML = '';
+		messagesDiv.appendChild(div);
+
+		if (type === 'success') {
+			setTimeout(() => messagesDiv.innerHTML = '', 4000);
+		}
+	}
+
+	function resetFilters() {
+		initializeFilters();
+		document.getElementById('timeFrame').value = '';
+		document.getElementById('startTime').value = '';
+		document.getElementById('endTime').value = '';
+		document.getElementById('timeInterval').value = 'minute';
+		document.getElementById('messages').innerHTML = '';
+		document.getElementById('stats').innerHTML = '';
+		document.getElementById('logPreview').innerHTML = '';
+		if (chart) {
+			chart.destroy();
+			chart = null;
+		}
+	}
+
+	function escapeHtml(text) {
+		const map = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#039;'
+		};
+		return text.replace(/[&<>"']/g, m => map[m]);
+	}
+
+	// Initialize filters on page load
+	initializeFilters();
+
+	</script>
+</body>
+
+</html>
